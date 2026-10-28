@@ -1,0 +1,4 @@
+plugins { id 'com.android.application' version '8.12.1' apply false }
+if (System.getenv('CAMTV_BUILD_DIR')) {
+    allprojects { layout.buildDirectory = file(new File(System.getenv('CAMTV_BUILD_DIR'), project.name)) }
+}

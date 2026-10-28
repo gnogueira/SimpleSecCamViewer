@@ -1,0 +1,23 @@
+1 ICON "camxp.ico"
+
+1 VERSIONINFO
+FILEVERSION 1,4,0,0
+PRODUCTVERSION 1,4,0,0
+FILEOS 0x40004
+FILETYPE 0x1
+BEGIN
+ BLOCK "StringFileInfo"
+ BEGIN
+  BLOCK "040904E4"
+  BEGIN
+   VALUE "FileDescription", "SimpleSecCamViewer - Monitor de cameras"
+   VALUE "FileVersion", "1.4.0"
+   VALUE "ProductName", "SimpleSecCamViewer"
+   VALUE "ProductVersion", "1.4.0"
+  END
+ END
+ BLOCK "VarFileInfo"
+ BEGIN
+  VALUE "Translation", 0x409, 1252
+ END
+END

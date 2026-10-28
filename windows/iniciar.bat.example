@@ -1,0 +1,5 @@
+@echo off
+set "NVR=192.0.2.1"
+set "USUARIO=admin"
+set "SENHA=SUBSTITUA_PELA_SENHA"
+set "VLC=C:\Arquivos de programas\VideoLAN\VLC\vlc.exe"

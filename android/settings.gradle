@@ -1,0 +1,10 @@
+pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        if (System.getenv('CAMTV_MAVEN')) maven { url = uri(System.getenv('CAMTV_MAVEN')) }
+        google(); mavenCentral()
+    }
+}
+rootProject.name = 'CamTV'
+include ':app'
