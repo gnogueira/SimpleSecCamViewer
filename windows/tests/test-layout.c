@@ -32,6 +32,6 @@ int main(void) {
             }
         }
     }
-    puts("OK: lista vazia/16 canais, duplicados e entradas invalidas, tres layouts, limites e sobreposicoes para 0 a 16 cameras.");
+    puts("OK: empty and 16-channel lists, duplicates, invalid input, layouts and bounds.");
     return 0;
 }

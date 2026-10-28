@@ -1,5 +1,5 @@
-# Componentes de terceiros
+# Third-party components
 
-O SimpleSecCamViewer carrega a LibVLC de uma instalação separada do VLC de 32 bits, fornecida pelo usuário. A LibVLC possui licença própria; consulte a [VideoLAN](https://www.videolan.org/vlc/libvlc.html) e os termos da versão do VLC utilizada.
+SimpleSecCamViewer loads LibVLC from a separate 32-bit VLC installation supplied by the user. LibVLC has its own license; consult [VideoLAN](https://www.videolan.org/vlc/libvlc.html) and the terms of the VLC version used.
 
-A licença MIT do código deste projeto não substitui as licenças dos componentes de terceiros. Antes de redistribuir o VLC ou suas bibliotecas, confira as condições aplicáveis à versão distribuída.
+The MIT License for this project's code does not replace third-party licenses. Check the applicable conditions before redistributing VLC or its libraries.

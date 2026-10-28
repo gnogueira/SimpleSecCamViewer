@@ -67,8 +67,8 @@ static char channels[CAM_MAX][16], batch[32768], pathbuf[1024], url[2048], text[
 static char ini[MAX_PATH], renderer[32], old_status[CAM_MAX][128];
 static int closing;
 static const char *const states[] = {
-    "Aguardando", "Conectando", "Carregando", "Reproduzindo",
-    "Pausada", "Parada", "Encerrada", "Erro de conexao/video"
+    "Waiting", "Connecting", "Loading", "Playing",
+    "Paused", "Stopped", "Ended", "Connection/video error"
 };
 static void layout(void);
 static void rebuild_menus(void);
@@ -169,7 +169,7 @@ static int save_settings(void) {
     }
     if(!MoveFileA(temporary,ini)) {
         if(exists && !MoveFileA(backup,ini)) {
-            logline("Falha ao restaurar camxp.ini. A copia anterior esta em camxp.ini.*.bak.");
+            logline("Failed to restore camxp.ini. The previous copy is in camxp.ini.*.bak.");
         }
         DeleteFileA(temporary);return 0;
     }
@@ -223,7 +223,7 @@ static int loadconfig(void) {
     attr=GetFileAttributesA(pathbuf);
     return attr!=INVALID_FILE_ATTRIBUTES && !(attr&FILE_ATTRIBUTE_DIRECTORY);
 }
-#define LOAD(name) do { *(FARPROC *)&name=GetProcAddress(vlc_dll,#name); if(!name) { startup_error=GetLastError(); logline("Funcao ausente: " #name); return 0; } } while(0)
+#define LOAD(name) do { *(FARPROC *)&name=GetProcAddress(vlc_dll,#name); if(!name) { startup_error=GetLastError(); logline("Missing function: " #name); return 0; } } while(0)
 static int initvlc(void) {
     const char *args[14];
     int argc=0;
@@ -232,18 +232,18 @@ static int initvlc(void) {
     makepath(pathbuf,sizeof pathbuf,vlcdir,"plugins");
     SetEnvironmentVariableA("VLC_PLUGIN_PATH",pathbuf);
     makepath(pathbuf,sizeof pathbuf,vlcdir,"libvlccore.dll");
-    logline("Carregando libvlccore.dll.");
+    logline("Loading libvlccore.dll.");
     core_dll=LoadLibraryA(pathbuf);
     if(!core_dll) {
         startup_error=GetLastError();
-        wsprintfA(text,"Falha libvlccore.dll: Windows %lu.",startup_error);logline(text);return 0;
+        wsprintfA(text,"libvlccore.dll error: Windows %lu.",startup_error);logline(text);return 0;
     }
     makepath(pathbuf,sizeof pathbuf,vlcdir,"libvlc.dll");
-    logline("Carregando libvlc.dll.");
+    logline("Loading libvlc.dll.");
     vlc_dll=LoadLibraryA(pathbuf);
     if(!vlc_dll) {
         startup_error=GetLastError();
-        wsprintfA(text,"Falha libvlc.dll: Windows %lu.",startup_error);logline(text);return 0;
+        wsprintfA(text,"libvlc.dll error: Windows %lu.",startup_error);logline(text);return 0;
     }
     LOAD(libvlc_new); LOAD(libvlc_release); LOAD(libvlc_media_new_location);
     LOAD(libvlc_media_add_option); LOAD(libvlc_media_release); LOAD(libvlc_media_get_stats);
@@ -264,7 +264,7 @@ static int initvlc(void) {
             append(config_arg,pathbuf,sizeof config_arg);
             args[argc++]=config_arg;
             args[argc++]="--no-ignore-config";
-            logline("Usando copia local do perfil VLC: camxp-vlc.cfg.");
+            logline("Using local VLC profile copy: camxp-vlc.cfg.");
         }
     }
     args[argc++]="--no-audio";
@@ -279,12 +279,12 @@ static int initvlc(void) {
         copystr(render_arg,"--vout=",sizeof render_arg);
         append(render_arg,renderer,sizeof render_arg); args[argc++]=render_arg;
     }
-    logline("Inicializando LibVLC e examinando plugins.");
+    logline("Initializing LibVLC and scanning plugins.");
     vlc=libvlc_new(argc,args);
     if(!vlc) {
         startup_error=GetLastError();
-        logline("libvlc_new retornou NULL.");
-    } else {logline("LibVLC inicializado.");}
+        logline("libvlc_new returned NULL.");
+    } else {logline("LibVLC initialized.");}
     return vlc!=NULL;
 }
 static DWORD WINAPI stop_thread(void *context) {
@@ -306,7 +306,7 @@ static int retire_player(int side,unsigned delay) {
     stopjob[side].player=player[side];stopjob[side].media=media_ref[side];
     stopping[side]=CreateThread(NULL,0,stop_thread,&stopjob[side],0,NULL);
     if(!stopping[side]) {
-        logline("Nao foi possivel criar tarefa de encerramento. Player preservado.");
+        logline("Could not start cleanup task. Player retained.");
         return 0;
     }
     player[side]=NULL;media_ref[side]=NULL;waiting[side]=0;
@@ -315,11 +315,11 @@ static int retire_player(int side,unsigned delay) {
 }
 static void queue_retry(int side,const char *reason,int automatic) {
     unsigned delay=automatic?cam_retry_delay(attempts[side]):60;
-    wsprintfA(text,"Camera %s: %s. Nova tentativa apos %u s do encerramento.",channels[side],reason,delay);
+    wsprintfA(text,"Camera %s: %s. Retry %u s after shutdown.",channels[side],reason,delay);
     logline(text);
     if(retire_player(side,delay)) {
         if(automatic && attempts[side]<4)attempts[side]++;
-        wsprintfA(text,"Camera %s - Recuperando conexao...",channels[side]);
+        wsprintfA(text,"Camera %s - Reconnecting...",channels[side]);
         SetWindowTextA(label[side],text);
         if(fullscreen)layout();
     }
@@ -332,7 +332,7 @@ static void reap_stops(void) {
         retry_at[i]=GetTickCount()+after_stop[i]*1000u;
         waiting[i]=enabled[i] && !closing;
         if(!enabled[i])menus_changed=1;
-        wsprintfA(text,"Camera %s: sessao anterior encerrada.",channels[i]);logline(text);
+        wsprintfA(text,"Camera %s: previous session stopped.",channels[i]);logline(text);
     }
     if(menus_changed && !closing)rebuild_menus();
 }
@@ -357,21 +357,21 @@ static void toggle_fullscreen(int enable) {
         SetWindowPos(mainwin,HWND_TOP,monitor.rcMonitor.left,monitor.rcMonitor.top,
             monitor.rcMonitor.right-monitor.rcMonitor.left,monitor.rcMonitor.bottom-monitor.rcMonitor.top,
             SWP_FRAMECHANGED|SWP_SHOWWINDOW);
-        logline("Tela inteira ativada. F11/Esc retorna; Alt+F4 encerra.");
+        logline("Fullscreen enabled. F11/Esc returns; Alt+F4 exits.");
     } else {
         fullscreen=0;SetWindowLongA(mainwin,GWL_STYLE,normal_style);
         SetMenu(mainwin,main_menu);SetWindowPlacement(mainwin,&normal_placement);
         SetWindowPos(mainwin,NULL,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
-        logline("Modo janela restaurado.");
+        logline("Windowed mode restored.");
     }
     layout();SetFocus(mainwin);
 }
 static void show_context(HWND hwnd,int x,int y) {
     HMENU popup=CreatePopupMenu();
     if(x==-1 && y==-1) {POINT point;GetCursorPos(&point);x=point.x;y=point.y;}
-    AppendMenuA(popup,MF_STRING,103,fullscreen?"Voltar para janela (F11/Esc)":"Tela inteira (F11)");
-    AppendMenuA(popup,MF_STRING,101,"Reconectar cameras");
-    AppendMenuA(popup,MF_STRING,102,"Fechar (Alt+F4)");
+    AppendMenuA(popup,MF_STRING,103,fullscreen?"Return to window (F11/Esc)":"Fullscreen (F11)");
+    AppendMenuA(popup,MF_STRING,101,"Reconnect cameras");
+    AppendMenuA(popup,MF_STRING,102,"Exit (Alt+F4)");
     TrackPopupMenu(popup,TPM_RIGHTBUTTON,x,y,0,hwnd,NULL);DestroyMenu(popup);
 }
 static LRESULT CALLBACK panel_proc(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
@@ -397,13 +397,13 @@ static void rebuild_menus(void) {
         wsprintfA(text,"Camera %d",ch);
         AppendMenuA(add,MF_STRING|(channel_selected(ch,-1)||count==CAM_MAX?MF_GRAYED:0),1000+ch,text);
     }
-    AppendMenuA(cameras,MF_POPUP,(UINT_PTR)add,"Adicionar camera");
+    AppendMenuA(cameras,MF_POPUP,(UINT_PTR)add,"Add camera");
     for(int i=0;i<CAM_MAX;i++)if(enabled[i]) {
-        wsprintfA(text,"Painel %d - Camera %s",++position,channels[i]);
+        wsprintfA(text,"Panel %d - Camera %s",++position,channels[i]);
         AppendMenuA(remove,MF_STRING,2000+i,text);
     }
-    if(!count)AppendMenuA(remove,MF_GRAYED,0,"Nenhuma camera");
-    AppendMenuA(cameras,MF_POPUP,(UINT_PTR)remove,"Remover camera");
+    if(!count)AppendMenuA(remove,MF_GRAYED,0,"No cameras");
+    AppendMenuA(cameras,MF_POPUP,(UINT_PTR)remove,"Remove camera");
     AppendMenuA(cameras,MF_SEPARATOR,0,NULL);
     position=0;
     for(int i=0;i<CAM_MAX;i++)if(enabled[i]) {
@@ -412,20 +412,20 @@ static void rebuild_menus(void) {
             char value[16];wsprintfA(value,"%d",ch);wsprintfA(text,"Camera %d",ch);
             AppendMenuA(selection,MF_STRING|(channel_selected(ch,i)?MF_GRAYED:0)|(equal(value,channels[i])?MF_CHECKED:0),3000+i*CAM_MAX+ch-1,text);
         }
-        wsprintfA(text,"Painel %d - Camera %s",++position,channels[i]);
+        wsprintfA(text,"Panel %d - Camera %s",++position,channels[i]);
         AppendMenuA(cameras,MF_POPUP,(UINT_PTR)selection,text);
     }
     AppendMenuA(cameras,MF_SEPARATOR,0,NULL);
-    AppendMenuA(cameras,MF_STRING,101,"Reconectar todas (aguarda 60 s)");
-    AppendMenuA(cameras,MF_STRING,102,"Fechar");
+    AppendMenuA(cameras,MF_STRING,101,"Reconnect all (wait 60 s)");
+    AppendMenuA(cameras,MF_STRING,102,"Exit");
     AppendMenuA(main_menu,MF_POPUP,(UINT_PTR)cameras,"Cameras");
-    AppendMenuA(layouts,MF_STRING|(layout_mode==CAM_SIDE_BY_SIDE?MF_CHECKED:0),110,"Lado a lado");
-    AppendMenuA(layouts,MF_STRING|(layout_mode==CAM_STACKED?MF_CHECKED:0),111,"Uma acima da outra");
-    AppendMenuA(layouts,MF_STRING|(layout_mode==CAM_GRID?MF_CHECKED:0),112,"Mosaico automatico");
+    AppendMenuA(layouts,MF_STRING|(layout_mode==CAM_SIDE_BY_SIDE?MF_CHECKED:0),110,"Side by side");
+    AppendMenuA(layouts,MF_STRING|(layout_mode==CAM_STACKED?MF_CHECKED:0),111,"Stacked");
+    AppendMenuA(layouts,MF_STRING|(layout_mode==CAM_GRID?MF_CHECKED:0),112,"Automatic grid");
     AppendMenuA(view,MF_POPUP,(UINT_PTR)layouts,"Layout");
-    AppendMenuA(view,MF_STRING,103,"Tela inteira\tF11");
-    AppendMenuA(view,MF_STRING,104,"Voltar para janela\tEsc");
-    AppendMenuA(main_menu,MF_POPUP,(UINT_PTR)view,"Exibir");
+    AppendMenuA(view,MF_STRING,103,"Fullscreen\tF11");
+    AppendMenuA(view,MF_STRING,104,"Return to window\tEsc");
+    AppendMenuA(main_menu,MF_POPUP,(UINT_PTR)view,"View");
     if(mainwin && !fullscreen){SetMenu(mainwin,main_menu);DrawMenuBar(mainwin);}
     if(old)DestroyMenu(old);
 }
@@ -433,45 +433,45 @@ static void set_layout(int mode) {
     if(closing || layout_mode==mode)return;
     int previous=layout_mode;layout_mode=mode;
     if(!save_settings()) {
-        layout_mode=previous;MessageBoxA(mainwin,"Nao foi possivel salvar o layout.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
+        layout_mode=previous;MessageBoxA(mainwin,"Could not save the layout.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
     }
     rebuild_menus();layout();
-    logline("Layout alterado e salvo, sem reconectar as cameras.");
+    logline("Layout changed and saved without reconnecting cameras.");
 }
 static void add_camera(int channel) {
     if(closing || channel<1 || channel>CAM_MAX || camera_count()>=CAM_MAX || channel_selected(channel,-1))return;
     int slot=-1;
     for(int i=0;i<CAM_MAX;i++)if(!enabled[i] && !stopping[i] && !player[i] && !media_ref[i]){slot=i;break;}
-    if(slot<0){MessageBoxA(mainwin,"Aguarde o encerramento das cameras removidas antes de adicionar outra.","SimpleSecCamViewer",MB_OK|MB_ICONINFORMATION);return;}
+    if(slot<0){MessageBoxA(mainwin,"Wait for removed cameras to stop before adding another.","SimpleSecCamViewer",MB_OK|MB_ICONINFORMATION);return;}
     char previous[16];copystr(previous,channels[slot],sizeof previous);
     wsprintfA(channels[slot],"%d",channel);enabled[slot]=1;
     if(!save_settings()) {
         enabled[slot]=0;copystr(channels[slot],previous,sizeof channels[slot]);
-        MessageBoxA(mainwin,"Nao foi possivel salvar a nova camera.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
+        MessageBoxA(mainwin,"Could not save the new camera.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
     }
     attempts[slot]=0;old_status[slot][0]=0;
-    rebuild_menus();queue_retry(slot,"camera adicionada e salva",0);layout();
+    rebuild_menus();queue_retry(slot,"camera added and saved",0);layout();
 }
 static void remove_camera(int slot) {
     if(closing || !enabled[slot])return;
     enabled[slot]=0;
     if(!save_settings()) {
-        enabled[slot]=1;MessageBoxA(mainwin,"Nao foi possivel salvar a remocao.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
+        enabled[slot]=1;MessageBoxA(mainwin,"Could not save the removal.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
     }
     waiting[slot]=0;
     if(!retire_player(slot,0)) {
         enabled[slot]=1;
-        if(!save_settings())logline("Falha ao restaurar configuracao apos remocao interrompida.");
-        MessageBoxA(mainwin,"Nao foi possivel encerrar essa camera agora. A remocao foi interrompida.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);
+        if(!save_settings())logline("Failed to restore settings after interrupted removal.");
+        MessageBoxA(mainwin,"Could not stop this camera. Removal canceled.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);
         return;
     }
-    rebuild_menus();layout();logline("Camera removida da exibicao; encerrando apenas essa sessao.");
+    rebuild_menus();layout();logline("Camera removed; stopping only this session.");
 }
 static void change_channel(int side,int channel) {
     char value[16];
     if(closing || channel<1 || channel>CAM_MAX || !enabled[side] || channel_selected(channel,side))return;
     if(stopping[side]) {
-        MessageBoxA(mainwin,"Aguarde o encerramento da sessao desse painel antes de trocar a camera.","SimpleSecCamViewer",MB_OK|MB_ICONINFORMATION);
+        MessageBoxA(mainwin,"Wait for this panel session to stop before changing cameras.","SimpleSecCamViewer",MB_OK|MB_ICONINFORMATION);
         return;
     }
     wsprintfA(value,"%d",channel);
@@ -480,10 +480,10 @@ static void change_channel(int side,int channel) {
     copystr(channels[side],value,sizeof channels[side]);
     if(!save_settings()) {
         copystr(channels[side],previous,sizeof channels[side]);
-        MessageBoxA(mainwin,"Nao foi possivel salvar camxp.ini. A troca nao foi aplicada.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
+        MessageBoxA(mainwin,"Could not save camxp.ini. The change was not applied.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);return;
     }
     old_status[side][0]=0;attempts[side]=0;rebuild_menus();
-    queue_retry(side,"canal alterado e salvo",0);
+    queue_retry(side,"channel changed and saved",0);
 
 }
 static void connectcam(int i) {
@@ -495,7 +495,7 @@ static void connectcam(int i) {
     wsprintfA(url,"rtsp://%s:554/user=%s&password=%s&channel=%s&stream=1.sdp?real_stream",nvr,user,password,channels[i]);
     media=libvlc_media_new_location(vlc,url);
     clearbytes(url,sizeof url);
-    if(!media) {queue_retry(i,"falha ao criar midia",1);return;}
+    if(!media) {queue_retry(i,"failed to create media",1);return;}
     media_ref[i]=media;
     libvlc_media_add_option(media,":rtsp-tcp");
     libvlc_media_add_option(media,":network-caching=1000");
@@ -505,10 +505,10 @@ static void connectcam(int i) {
         libvlc_media_player_set_hwnd(player[i],panel[i]);
         libvlc_video_set_mouse_input(player[i],0);
         libvlc_video_set_key_input(player[i],0);
-        if(libvlc_media_player_play(player[i])<0) {queue_retry(i,"falha ao iniciar reproducao",1);return;}
+        if(libvlc_media_player_play(player[i])<0) {queue_retry(i,"failed to start playback",1);return;}
     }
-    if(!player[i]) {queue_retry(i,"falha ao criar player",1);return;}
-    wsprintfA(text,"Canal %s: inicio solicitado, painel %d.",channels[i],i+1);
+    if(!player[i]) {queue_retry(i,"failed to create player",1);return;}
+    wsprintfA(text,"Channel %s: start requested, panel %d.",channels[i],i+1);
     logline(text);
 }
 static void update_status(void) {
@@ -519,11 +519,11 @@ static void update_status(void) {
         int state=player[i]?libvlc_media_player_get_state(player[i]):0;
         unsigned vout=player[i]?libvlc_media_player_has_vout(player[i]):0;
         if(state<0 || state>7)state=7;
-        if(stopping[i])wsprintfA(status,"Camera %s - Encerrando sessao...",channels[i]);
+        if(stopping[i])wsprintfA(status,"Camera %s - Stopping session...",channels[i]);
         else if(waiting[i]) {
             DWORD remaining=(LONG)(retry_at[i]-now)>0?(retry_at[i]-now+999u)/1000u:0;
-            wsprintfA(status,"Camera %s - Conexao em %lu s",channels[i],remaining);
-        } else wsprintfA(status,"Camera %s - %s%s",channels[i],states[state],state==3&&!vout?" (sem saida de video)":"");
+            wsprintfA(status,"Camera %s - Connecting in %lu s",channels[i],remaining);
+        } else wsprintfA(status,"Camera %s - %s%s",channels[i],states[state],state==3&&!vout?" (no video output)":"");
         if(!equal(status,old_status[i])) {
             copystr(old_status[i],status,sizeof old_status[i]);SetWindowTextA(label[i],status);
             if(!waiting[i])logline(status);
@@ -533,12 +533,12 @@ static void update_status(void) {
             clearbytes(&stats,sizeof stats);
             int available=media_ref[i] && libvlc_media_get_stats(media_ref[i],&stats);
             if(!available && !stats_warned[i]) {
-                logline("Contadores de quadros indisponiveis; monitorando estado e saida de video.");stats_warned[i]=1;
+                logline("Frame counters unavailable; monitoring state and video output.");stats_warned[i]=1;
             }
             int reason=cam_watchdog_sample(&watchdog[i],now,state,available,stats.displayed_pictures,vout!=0,IsIconic(mainwin));
             if(watchdog[i].healthy)attempts[i]=0;
             if(reason) {
-                const char *why=reason==CAM_FROZEN?"quadros parados por 30 s":reason==CAM_NO_IMAGE?"sem primeiro quadro por 45 s":"conexao encerrada ou com erro";
+                const char *why=reason==CAM_FROZEN?"no new frames for 30 s":reason==CAM_NO_IMAGE?"no first frame for 45 s":"connection ended or failed";
                 queue_retry(i,why,1);
             }
         }
@@ -598,15 +598,15 @@ static LRESULT CALLBACK wndproc(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp) {
             int code=LOWORD(wp)-3000;change_channel(code/CAM_MAX,code%CAM_MAX+1);
         }
         if(LOWORD(wp)==101 && !closing) {
-            for(int i=0;i<CAM_MAX;i++)if(enabled[i]){attempts[i]=0;queue_retry(i,"reconexao manual",0);}
+            for(int i=0;i<CAM_MAX;i++)if(enabled[i]){attempts[i]=0;queue_retry(i,"manual reconnection",0);}
         }
         if(LOWORD(wp)==102)SendMessageA(hwnd,WM_CLOSE,0,0);
         return 0;
     case WM_CLOSE:
         if(closing)return 0;
         closing=1;
-        SetWindowTextA(footer,"Encerrando cameras...");
-        logline("Encerrando players normalmente em segundo plano.");
+        SetWindowTextA(footer,"Stopping cameras...");
+        logline("Stopping players in the background.");
         for(int i=0;i<CAM_MAX;i++){waiting[i]=0;retire_player(i,0);}
         finish_close();return 0;
     case WM_DESTROY: PostQuitMessage(0);return 0;
@@ -635,16 +635,16 @@ void WINAPI WinMainCRTStartup(void) {
     base[len-1]=0;
     makepath(pathbuf,sizeof pathbuf,base,"camxp-app.log");
     log_file=CreateFileA(pathbuf,GENERIC_WRITE,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
-    logline("SimpleSecCamViewer 1.4 - layouts e ate 16 cameras configuraveis.");
+    logline("SimpleSecCamViewer 1.4 - layouts and up to 16 configurable cameras.");
     if(!loadconfig()) {
-        MessageBoxA(NULL,"Nao foi possivel ler a configuracao. Coloque iniciar.bat ao lado de SimpleSecCamViewer.exe e confira o NVR, usuario e caminho do VLC de 32 bits.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);
-        logline("Configuracao invalida ou libvlc.dll ausente."); ExitProcess(1);
+        MessageBoxA(NULL,"Could not read settings. Place iniciar.bat beside SimpleSecCamViewer.exe and check the NVR, user and 32-bit VLC path.","SimpleSecCamViewer",MB_OK|MB_ICONERROR);
+        logline("Invalid settings or missing libvlc.dll."); ExitProcess(1);
     }
     if(needs_migration && !save_settings())
-        logline("Nao foi possivel criar camxp.ini. Usando canais padrao nesta sessao.");
+        logline("Could not create camxp.ini. Using default channels for this session.");
     if(!initvlc()) {
-        wsprintfA(text,"Nao foi possivel carregar o VLC de 32 bits. Erro Windows: %lu. Consulte camxp-app.log.",startup_error);
-        MessageBoxA(NULL,text,"SimpleSecCamViewer",MB_OK|MB_ICONERROR); logline("Falha ao carregar/inicializar LibVLC."); ExitProcess(1);
+        wsprintfA(text,"Could not load 32-bit VLC. Windows error: %lu. See camxp-app.log.",startup_error);
+        MessageBoxA(NULL,text,"SimpleSecCamViewer",MB_OK|MB_ICONERROR); logline("Failed to load or initialize LibVLC."); ExitProcess(1);
     }
     clearbytes(&wc,sizeof wc); wc.lpfnWndProc=wndproc; wc.hInstance=instance;
     wc.hCursor=LoadCursor(NULL,IDC_ARROW); wc.hIcon=LoadIconA(instance,MAKEINTRESOURCEA(1));
@@ -654,24 +654,24 @@ void WINAPI WinMainCRTStartup(void) {
     wc.lpfnWndProc=panel_proc;wc.lpszClassName="CamXPVideoPanel";
     wc.style=CS_DBLCLKS;wc.hbrBackground=(HBRUSH)GetStockObject(BLACK_BRUSH);RegisterClassA(&wc);
     rebuild_menus();
-    mainwin=CreateWindowExA(0,"CamXPNative","SimpleSecCamViewer - Monitor de cameras",WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN,
+    mainwin=CreateWindowExA(0,"CamXPNative","SimpleSecCamViewer - Camera monitor",WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN,
         CW_USEDEFAULT,CW_USEDEFAULT,1000,520,NULL,main_menu,instance,NULL);
     if(!mainwin) {libvlc_release(vlc);ExitProcess(1);}
     for(int i=0;i<CAM_MAX;i++) {
-        label[i]=CreateWindowExA(0,"STATIC","Aguardando",WS_CHILD|WS_VISIBLE,0,0,0,0,mainwin,NULL,instance,NULL);
+        label[i]=CreateWindowExA(0,"STATIC","Waiting",WS_CHILD|WS_VISIBLE,0,0,0,0,mainwin,NULL,instance,NULL);
         panel[i]=CreateWindowExA(0,"CamXPVideoPanel",NULL,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,
             0,0,0,0,mainwin,NULL,instance,NULL);
         SendMessageA(label[i],WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
     }
-    footer=CreateWindowExA(0,"STATIC","F11: tela inteira | Esc: voltar | Reconexao automatica ativa",WS_CHILD|WS_VISIBLE,0,0,0,0,mainwin,NULL,instance,NULL);
+    footer=CreateWindowExA(0,"STATIC","F11: fullscreen | Esc: return | Automatic reconnection enabled",WS_CHILD|WS_VISIBLE,0,0,0,0,mainwin,NULL,instance,NULL);
     SendMessageA(footer,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
-    empty_notice=CreateWindowExA(0,"STATIC","Nenhuma camera selecionada. Use Cameras > Adicionar camera.\r\nF11/Esc alterna o modo de tela inteira.",WS_CHILD|SS_CENTER,0,0,0,0,mainwin,NULL,instance,NULL);
+    empty_notice=CreateWindowExA(0,"STATIC","No cameras selected. Use Cameras > Add camera.\r\nF11/Esc toggles fullscreen.",WS_CHILD|SS_CENTER,0,0,0,0,mainwin,NULL,instance,NULL);
     SendMessageA(empty_notice,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
     layout();ShowWindow(mainwin,SW_SHOWMAXIMIZED);UpdateWindow(mainwin);
     keys[0].fVirt=FVIRTKEY;keys[0].key=VK_F11;keys[0].cmd=103;
     keys[1].fVirt=FVIRTKEY;keys[1].key=VK_ESCAPE;keys[1].cmd=104;
     accelerators=CreateAcceleratorTableA(keys,2);
-    logline("Janela e dois paineis criados.");
+    logline("Window and panels created.");
     int order=0;DWORD start=GetTickCount()+1000u;
     for(int i=0;i<CAM_MAX;i++)if(enabled[i]){waiting[i]=1;retry_at[i]=start+(order++)*3000u;}
     SetTimer(mainwin,1,1000,NULL);

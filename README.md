@@ -1,21 +1,21 @@
 # SimpleSecCamViewer
 
-Aplicativo para visualizar câmeras de um NVR pela rede local em **Windows XP**. Permite escolher até 16 canais, alternar o layout, usar tela cheia e tentar reconectar transmissões interrompidas. O limite real de câmeras depende do NVR, da rede e do dispositivo.
+A Windows XP application for viewing compatible NVR cameras over a local network. It supports up to 16 channels, selectable layouts, fullscreen viewing and automatic reconnection. Actual capacity depends on the NVR, network and computer.
 
-O aplicativo usa o substream RTSP no formato específico de NVRs Xiongmai/XMeye, como alguns modelos Giga Security. Não é um visualizador universal para qualquer endereço RTSP ou qualquer NVR. Não grava vídeo. A compatibilidade com outros aparelhos precisa ser verificada.
+The application uses the RTSP substream format of Xiongmai/XMeye NVRs, including some Giga Security models. It is not a universal RTSP viewer and does not record video. Compatibility with other devices must be tested.
 
-## SimpleSecCamViewer — Windows XP
+## Setup
 
-Requer Windows XP SP3 de 32 bits e VLC 3 de 32 bits instalado. O aplicativo carrega a LibVLC da instalação do VLC. Para configurar, copie `windows/iniciar.bat.example` para `iniciar.bat` na pasta do executável e edite IP, usuário, senha e caminho do VLC. O arquivo é lido como texto; não precisa ser executado. Proteja esse arquivo: a senha fica em texto simples. Não o publique.
+Windows XP SP3 and a 32-bit installation of VLC 3 are required. Copy `windows/iniciar.bat.example` to `iniciar.bat` next to the executable and edit the NVR address, username, password and VLC path. The application reads the file as text; it does not need to be run. The password is stored in plain text: protect this file and do not publish it.
 
-A lista de canais e o layout são salvos em `camxp.ini`. F11 alterna a tela inteira e Esc retorna à janela. Veja as instruções de compilação em [windows/README.md](windows/README.md).
+Channels and layout are saved in `camxp.ini`. Press F11 to toggle fullscreen and Esc to return to the window. See [windows/README.md](windows/README.md) for build instructions.
 
-## Capacidade e segurança
+## Capacity and security
 
-Cada câmera usa uma sessão no NVR. Outros aplicativos compartilham o mesmo limite de conexões. As conexões são espaçadas e, em falhas repetidas, as tentativas aguardam períodos progressivos. A detecção observa o avanço dos quadros e pode não identificar uma imagem congelada que continue sendo retransmitida como quadros novos.
+Each camera uses an NVR session, and other applications share the device's connection limit. Connections are spaced out, with increasing delays after repeated failures. Recovery monitors frame progress and may not detect an NVR retransmitting a frozen picture as new frames.
 
-RTSP e credenciais via URL não oferecem confidencialidade por si só: use uma rede confiável e não exponha o NVR diretamente à internet. Configurações locais, senhas, logs, gravações e chaves de assinatura não fazem parte do projeto.
+RTSP and credentials in the URL do not provide confidentiality by themselves. Use a trusted network and do not expose the NVR directly to the internet. Local settings, passwords, logs and recordings are not included in this repository.
 
-## Licenças
+## License
 
-O código próprio deste repositório é oferecido sob [MIT](LICENSE). Componentes de terceiros mantêm suas próprias licenças. O aplicativo carrega a LibVLC da instalação separada do VLC, que possui licença própria. Antes de redistribuir componentes do VLC, confira as condições aplicáveis. Consulte [THIRD_PARTY.md](THIRD_PARTY.md).
+This project's own code is available under the [MIT License](LICENSE). Third-party components have their own licenses. The application loads LibVLC from a separate VLC installation. Check the applicable conditions before redistributing VLC components; see [THIRD_PARTY.md](THIRD_PARTY.md).

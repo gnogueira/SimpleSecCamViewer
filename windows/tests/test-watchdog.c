@@ -44,6 +44,6 @@ int main(void) {
     assert(cam_connection_due(63000,60000,60000,1));
     assert(cam_connection_due(2000,1000,UINT32_MAX-1000u,1));
     assert(!cam_connection_due(1000,1000,UINT32_MAX-1000u,1));
-    puts("OK: quedas, ausencia de imagem, quadros parados, cena estatica, minimizacao, estatisticas indisponiveis, backoff, espacamento e virada do relogio.");
+    puts("OK: failures, missing or stalled frames, static scenes, minimization, unavailable stats, backoff, spacing and clock rollover.");
     return 0;
 }

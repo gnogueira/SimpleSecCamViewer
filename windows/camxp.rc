@@ -10,7 +10,7 @@ BEGIN
  BEGIN
   BLOCK "040904E4"
   BEGIN
-   VALUE "FileDescription", "SimpleSecCamViewer - Monitor de cameras"
+   VALUE "FileDescription", "SimpleSecCamViewer - Camera monitor"
    VALUE "FileVersion", "1.4.0"
    VALUE "ProductName", "SimpleSecCamViewer"
    VALUE "ProductVersion", "1.4.0"
